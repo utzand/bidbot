@@ -29,8 +29,21 @@ pip install --upgrade pip
 pip install -r src/requirements.txt
 pip install -e ./src
 
-# Copy environment file
-cp .env.example .env
+# Copy environment file if it doesn't exist
+if [ ! -f ".env" ]; then
+    cp .env.example .env
+    echo "Created .env from template. Please edit with your Alpaca credentials."
+fi
 
-echo "Setup complete! Please edit /opt/bidbot/.env with your Alpaca credentials."
-echo "Then run: systemctl enable options-bidbot && systemctl start options-bidbot"
+# Copy systemd service
+cp deploy/options-bidbot.service /etc/systemd/system/
+
+# Reload systemd and enable service
+systemctl daemon-reload
+systemctl enable options-bidbot
+
+echo "Setup complete!"
+echo "Next steps:"
+echo "1. Edit /opt/bidbot/.env with your Alpaca credentials"
+echo "2. Start the service: systemctl start options-bidbot"
+echo "3. Check status: systemctl status options-bidbot"

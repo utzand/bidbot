@@ -17,3 +17,5 @@ pip install -e ./src
 systemctl restart options-bidbot
 
 echo "Update complete! Service restarted."
+echo "Check status: systemctl status options-bidbot"
+echo "View logs: journalctl -u options-bidbot -f"
