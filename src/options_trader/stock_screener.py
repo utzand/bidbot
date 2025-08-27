@@ -41,6 +41,7 @@ class StockScreener:
         self.min_price = 10.0      # Minimum stock price
         self.max_price = 1000.0    # Maximum stock price (avoid expensive stocks)
         self.lookback_days = 30    # Days of historical data to analyze
+        self.breakout_threshold = 0.02  # Threshold for breakout/breakdown detection
         
         # Scoring weights
         self.weights = {
@@ -274,7 +275,7 @@ class StockScreener:
             
             # Calculate indicators
             rsi = self.calculate_rsi(prices)
-            breakout, breakout_type, breakout_level = self.detect_breakout(prices)
+            breakout, breakout_type, breakout_level = self.detect_breakout(prices, self.breakout_threshold)
             momentum = self.calculate_momentum(prices)
             volatility = self.calculate_volatility(prices)
             volume_score = self.calculate_volume_score(volumes)

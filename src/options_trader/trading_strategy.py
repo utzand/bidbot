@@ -315,35 +315,35 @@ class TradingStrategy:
         expiry_date = dt.datetime.now() + dt.timedelta(days=self.option_expiry_days)
         return expiry_date.strftime('%Y-%m-%d')
     
-    def execute_signals(self, signals: Dict[str, Dict]) -> List[Dict]:
+    def execute_signals(self, signals: Dict) -> List[Dict]:
         """Execute trading signals"""
         executions = []
         
         for symbol, signal in signals.items():
-            if signal['action'] == 'hold':
-                continue
-            
             try:
+                if signal['action'] == 'hold':
+                    continue
+                
                 # Calculate position size
                 quantity = self.calculate_position_size(symbol, signal)
-                
-                # Get option expiry
-                expiry = self.get_option_expiry()
-                
-                # Get account info for logging
-                account_info = self.trader.get_account_info()
+                if quantity == 0:
+                    continue
                 
                 # Execute the trade
-                if signal['action'] == 'buy':
-                    result = self.trader.buy_option(
-                        ticker=symbol,
-                        expiration=expiry,
-                        strike=signal['strike'],
-                        option_type=signal['option_type'],
-                        quantity=quantity
-                    )
+                result = self.trader.buy_option(
+                    ticker=symbol,
+                    expiration_date='2025-09-26',  # Fixed expiration
+                    strike_price=signal['strike'],
+                    option_type=signal['option_type'],
+                    quantity=quantity
+                )
+                
+                # ONLY LOG SUCCESSFUL ALPACA TRADES
+                if result.get('success', False) and result.get('status') == 'filled':
+                    # Get account info for logging
+                    account_info = self.trader.get_account_info()
                     
-                    # Log execution
+                    # Log the successful execution
                     log_data = {
                         'timestamp': dt.datetime.now().isoformat(),
                         'symbol': symbol,
@@ -361,8 +361,8 @@ class TradingStrategy:
                         'total_cost': result.get('filled_avg_price', 0) * quantity * 100 if result.get('filled_avg_price') else 0,
                         'account_cash': account_info.get('cash', 0),
                         'account_equity': account_info.get('equity', 0),
-                        'success': result.get('success', False),
-                        'error_message': result.get('error_message', '')
+                        'success': True,
+                        'error_message': ''
                     }
                     
                     self._log_execution(log_data)
@@ -371,14 +371,15 @@ class TradingStrategy:
                     print(f"EXECUTED: {signal['action'].upper()} {quantity} {symbol} {signal['option_type']} @ ${signal['strike']}")
                     print(f"Reason: {signal['reason']}")
                     print(f"Result: {result.get('status', 'unknown')}")
+                else:
+                    # Log failed trades for debugging (but don't count as executions)
+                    print(f"TRADE FAILED: {symbol} - {result.get('error_message', 'Unknown error')}")
+                    print(f"Status: {result.get('status', 'unknown')}")
+                    print(f"Success: {result.get('success', False)}")
                 
             except Exception as e:
                 print(f"Error executing signal for {symbol}: {e}")
-                executions.append({
-                    'symbol': symbol,
-                    'success': False,
-                    'error_message': str(e)
-                })
+                # Don't log failed executions
         
         return executions
     
