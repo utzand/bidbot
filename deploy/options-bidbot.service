@@ -7,7 +7,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/bidbot
 Environment=PATH=/opt/bidbot/.venv/bin
-ExecStart=/opt/bidbot/.venv/bin/python -m options_trader.cli_monitor
+ExecStart=/opt/bidbot/.venv/bin/python test_bot.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
