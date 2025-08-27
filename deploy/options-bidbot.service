@@ -7,7 +7,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/bidbot
 Environment=PATH=/opt/bidbot/.venv/bin
-ExecStart=/opt/bidbot/.venv/bin/python test_bot.py
+ExecStart=/opt/bidbot/.venv/bin/python scripts/run_strategy.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

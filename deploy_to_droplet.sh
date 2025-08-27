@@ -1,56 +1,68 @@
 #!/bin/bash
 set -e
 
-echo "Deploying bidbot to DigitalOcean droplet..."
+echo "🚀 Deploying BidBot to DigitalOcean..."
 
-# SSH into droplet and run setup
-ssh -i ~/.ssh/digitalocean_bidbot root@144.126.214.90 << 'REMOTE_SCRIPT'
-    cd /opt/bidbot
+# Check if .env exists
+if [ ! -f ".env" ]; then
+    echo "❌ Error: .env file not found!"
+    echo "Please create .env file with your Alpaca credentials first."
+    exit 1
+fi
+
+# Get droplet IP from user
+echo "📝 Enter your DigitalOcean droplet IP address:"
+read -p "Droplet IP: " DROPLET_IP
+
+if [ -z "$DROPLET_IP" ]; then
+    echo "❌ Error: No IP address provided"
+    exit 1
+fi
+
+echo "🔧 Setting up BidBot on droplet $DROPLET_IP..."
+
+# Copy setup script to droplet
+echo "📤 Uploading setup script..."
+scp deploy/setup_droplet.sh root@$DROPLET_IP:/tmp/
+
+# Copy environment file to droplet
+echo "📤 Uploading environment file..."
+scp .env root@$DROPLET_IP:/tmp/
+
+# Execute setup on droplet
+echo "🔧 Running setup on droplet..."
+ssh root@$DROPLET_IP << 'EOF'
+    # Make setup script executable
+    chmod +x /tmp/setup_droplet.sh
     
-    if [ ! -d ".git" ]; then
-        echo "Initial setup - cloning repository..."
-        git clone https://github.com/utzand/bidbot.git .
-        
-        # Create virtual environment
-        python3 -m venv .venv
-        source .venv/bin/activate
-        
-        # Install dependencies
-        pip install --upgrade pip
-        pip install -r src/requirements.txt
-        pip install -e ./src
-        
-        # Copy environment file
-        cp .env.example .env
-        
-        # Copy systemd service
-        cp deploy/options-bidbot.service /etc/systemd/system/
-        
-        # Reload systemd and enable service
-        systemctl daemon-reload
-        systemctl enable options-bidbot
-        
-        echo "Initial setup complete!"
-        echo "Please edit /opt/bidbot/.env with your Alpaca credentials"
-        echo "Then run: systemctl start options-bidbot"
-    else
-        echo "Updating existing installation..."
-        git pull origin main
-        
-        # Update dependencies
-        source .venv/bin/activate
-        pip install -r src/requirements.txt
-        pip install -e ./src
-        
-        # Restart service
-        systemctl restart options-bidbot
-        
-        echo "Update complete! Service restarted."
-    fi
+    # Run setup
+    /tmp/setup_droplet.sh
     
-    echo "Service status:"
+    # Copy environment file
+    cp /tmp/.env /opt/bidbot/.env
+    
+    # Set proper permissions
+    chown -R root:root /opt/bidbot
+    chmod 600 /opt/bidbot/.env
+    
+    # Start the service
+    systemctl start options-bidbot
+    
+    # Check status
     systemctl status options-bidbot --no-pager
-REMOTE_SCRIPT
+EOF
 
-echo "Deployment completed!"
-echo "To view logs: ssh -i ~/.ssh/digitalocean_bidbot root@144.126.214.90 'journalctl -u options-bidbot -f'"
+echo "✅ Deployment complete!"
+echo ""
+echo "📊 To monitor your bot:"
+echo "   SSH: ssh root@$DROPLET_IP"
+echo "   Check logs: journalctl -u options-bidbot -f"
+echo "   Check status: systemctl status options-bidbot"
+echo ""
+echo "🌐 Dashboard will be available at: http://$DROPLET_IP:8050"
+echo ""
+echo "📝 Next steps:"
+echo "   1. SSH into your droplet: ssh root@$DROPLET_IP"
+echo "   2. Check bot status: systemctl status options-bidbot"
+echo "   3. View logs: journalctl -u options-bidbot -f"
+echo "   4. Access dashboard: http://$DROPLET_IP:8050"
