@@ -1,0 +1,17 @@
+[Unit]
+Description=BidBot Options Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/bidbot
+Environment=PATH=/opt/bidbot/.venv/bin
+ExecStart=/opt/bidbot/.venv/bin/python -m options_trader.cli_monitor
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
