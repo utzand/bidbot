@@ -133,23 +133,66 @@ class OptionTrader:
         if self.api:
             try:
                 positions = self.api.list_positions()
-                return [
-                    {
-                        'symbol': p.symbol,
-                        'qty': int(p.qty),
-                        'avg_entry_price': float(p.avg_entry_price),
-                        'market_value': float(p.market_value),
-                        'unrealized_pl': float(p.unrealized_pl),
-                        'current_price': float(p.current_price)
-                    }
-                    for p in positions
-                ]
+                result = []
+                for p in positions:
+                    try:
+                        result.append({
+                            'symbol': p.symbol,
+                            'qty': int(p.qty),
+                            'avg_entry_price': float(p.avg_entry_price) if p.avg_entry_price is not None else 0.0,
+                            'market_value': float(p.market_value) if p.market_value is not None else 0.0,
+                            'unrealized_pl': float(p.unrealized_pl) if p.unrealized_pl is not None else 0.0,
+                            'current_price': float(p.current_price) if p.current_price is not None else 0.0
+                        })
+                    except (ValueError, TypeError) as e:
+                        print(f"Error processing position {p.symbol}: {e}")
+                        # Skip this position if there's an error
+                        continue
+                return result
             except APIError as e:
                 print(f"API Error: {e}")
                 return []
         else:
             # Return simulated positions
             return self.simulated_portfolio['positions']
+    
+    def verify_position_exists(self, expected_symbol: str, expected_quantity: int = None) -> bool:
+        """
+        Verify that a specific position exists in Alpaca account
+        
+        Args:
+            expected_symbol (str): The option symbol to look for
+            expected_quantity (int, optional): Expected quantity to verify
+            
+        Returns:
+            bool: True if position exists, False otherwise
+        """
+        if self.simulation_mode or not self.api:
+            # In simulation mode, check simulated portfolio
+            for position in self.simulated_portfolio['positions']:
+                if position['symbol'] == expected_symbol:
+                    if expected_quantity is None or position['qty'] == expected_quantity:
+                        return True
+            return False
+        
+        try:
+            positions = self.api.list_positions()
+            for pos in positions:
+                if pos.symbol == expected_symbol:
+                    if expected_quantity is None or int(pos.qty) == expected_quantity:
+                        print(f"✅ Position verified: {pos.symbol} - {pos.qty} @ ${pos.avg_entry_price}")
+                        return True
+                    else:
+                        print(f"⚠️ Position found but quantity mismatch: {pos.symbol} - Expected: {expected_quantity}, Actual: {pos.qty}")
+                        return False
+            
+            print(f"❌ Position not found: {expected_symbol}")
+            print(f"Available positions: {[pos.symbol for pos in positions]}")
+            return False
+            
+        except Exception as e:
+            print(f"Error verifying position: {e}")
+            return False
     
     def _round_to_standard_strike(self, strike_price: float) -> float:
         """

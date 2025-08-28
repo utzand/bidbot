@@ -316,7 +316,7 @@ class TradingStrategy:
         return expiry_date.strftime('%Y-%m-%d')
     
     def execute_signals(self, signals: Dict) -> List[Dict]:
-        """Execute trading signals"""
+        """Execute trading signals with MANDATORY Alpaca verification"""
         executions = []
         
         for symbol, signal in signals.items():
@@ -329,6 +329,8 @@ class TradingStrategy:
                 if quantity == 0:
                     continue
                 
+                print(f"ATTEMPTING TRADE: {signal['action'].upper()} {quantity} {symbol} {signal['option_type']} @ ${signal['strike']}")
+                
                 # Execute the trade
                 result = self.trader.buy_option(
                     ticker=symbol,
@@ -338,8 +340,13 @@ class TradingStrategy:
                     quantity=quantity
                 )
                 
-                # ONLY LOG SUCCESSFUL ALPACA TRADES
-                if result.get('success', False) and result.get('status') == 'filled':
+                # MANDATORY VERIFICATION: Check if position actually exists in Alpaca
+                time.sleep(3)  # Wait for order to process
+                expected_symbol = result.get('symbol', '')
+                position_found = self.trader.verify_position_exists(expected_symbol, quantity)
+                
+                # ONLY LOG IF POSITION ACTUALLY EXISTS IN ALPACA
+                if result.get('success', False) and result.get('status') == 'filled' and position_found:
                     # Get account info for logging
                     account_info = self.trader.get_account_info()
                     
@@ -368,14 +375,19 @@ class TradingStrategy:
                     self._log_execution(log_data)
                     executions.append(result)
                     
-                    print(f"EXECUTED: {signal['action'].upper()} {quantity} {symbol} {signal['option_type']} @ ${signal['strike']}")
+                    print(f"✅ EXECUTED & VERIFIED: {signal['action'].upper()} {quantity} {symbol} {signal['option_type']} @ ${signal['strike']}")
                     print(f"Reason: {signal['reason']}")
                     print(f"Result: {result.get('status', 'unknown')}")
                 else:
                     # Log failed trades for debugging (but don't count as executions)
-                    print(f"TRADE FAILED: {symbol} - {result.get('error_message', 'Unknown error')}")
-                    print(f"Status: {result.get('status', 'unknown')}")
-                    print(f"Success: {result.get('success', False)}")
+                    if not position_found:
+                        print(f"❌ TRADE FAILED VERIFICATION: {symbol} - Position not found in Alpaca")
+                        print(f"Expected symbol: {expected_symbol}")
+                        print(f"Available positions: {[pos.symbol for pos in alpaca_positions]}")
+                    else:
+                        print(f"❌ TRADE FAILED: {symbol} - {result.get('error_message', 'Unknown error')}")
+                        print(f"Status: {result.get('status', 'unknown')}")
+                        print(f"Success: {result.get('success', False)}")
                 
             except Exception as e:
                 print(f"Error executing signal for {symbol}: {e}")
